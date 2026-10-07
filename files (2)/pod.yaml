@@ -1,0 +1,46 @@
+# A plain Pod + a Service in ONE file.
+# Uses its own names/labels, so it can live next to the Deployment.
+#
+# Deploy:  kubectl apply -f pod.yaml
+# Remove:  kubectl delete -f pod.yaml
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: request-sender-pod
+  labels:
+    app: request-sender-pod
+spec:
+  # Run on the worker node of your cluster (my-first-cluster).
+  nodeSelector:
+    kubernetes.io/hostname: my-first-cluster-worker
+  containers:
+    - name: request-sender
+      image: request-sender:v1
+      imagePullPolicy: IfNotPresent   # image was loaded with `kind load`
+      ports:
+        - containerPort: 8000
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        initialDelaySeconds: 3
+        periodSeconds: 5
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: request-sender-pod
+spec:
+  type: ClusterIP
+  selector:
+    app: request-sender-pod
+  ports:
+    - port: 8000
+      targetPort: 8000

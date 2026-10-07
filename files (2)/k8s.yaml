@@ -1,0 +1,65 @@
+# Everything for request-sender in ONE file:
+#   1) Deployment -> runs the pods (your app)
+#   2) Service    -> gives the pods one stable address
+#
+# Deploy:  kubectl apply -f k8s.yaml
+# Remove:  kubectl delete -f k8s.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: request-sender
+  labels:
+    app: request-sender
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: request-sender
+  template:
+    metadata:
+      labels:
+        app: request-sender
+    spec:
+      # Run the pods on this worker node.
+      # Delete these two lines to let Kubernetes pick any worker.
+      nodeSelector:
+        kubernetes.io/hostname: my-first-cluster-worker
+      containers:
+        - name: request-sender
+          image: request-sender:v1
+          # Image is loaded into the cluster with `kind load`, never pulled.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: request-sender
+spec:
+  type: ClusterIP
+  selector:
+    app: request-sender
+  ports:
+    - port: 8000
+      targetPort: 8000
